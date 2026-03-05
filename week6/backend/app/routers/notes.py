@@ -103,8 +103,11 @@ def debug_hash_md5(q: str) -> dict[str, str]:
 
 @router.get("/debug/eval")
 def debug_eval(expr: str) -> dict[str, str]:
-    result = str(eval(expr))  # noqa: S307
-    return {"result": result}
+    # Fixed: Disabled eval() endpoint - arbitrary code execution is a critical security risk
+    raise HTTPException(
+        status_code=403,
+        detail="eval() endpoint disabled for security. Arbitrary code execution is not allowed.",
+    )
 
 
 @router.get("/debug/run")
