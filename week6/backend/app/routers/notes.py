@@ -68,16 +68,18 @@ def get_note(note_id: int, db: Session = Depends(get_db)) -> NoteRead:
 
 @router.get("/unsafe-search", response_model=list[NoteRead])
 def unsafe_search(q: str, db: Session = Depends(get_db)) -> list[NoteRead]:
+    # Fixed: Use parameterized query to prevent SQL injection
     sql = text(
-        f"""
+        """
         SELECT id, title, content, created_at, updated_at
         FROM notes
-        WHERE title LIKE '%{q}%' OR content LIKE '%{q}%'
+        WHERE title LIKE :search_pattern OR content LIKE :search_pattern
         ORDER BY created_at DESC
         LIMIT 50
         """
     )
-    rows = db.execute(sql).all()
+    search_pattern = f"%{q}%"
+    rows = db.execute(sql, {"search_pattern": search_pattern}).all()
     results: list[NoteRead] = []
     for r in rows:
         results.append(
@@ -107,10 +109,18 @@ def debug_eval(expr: str) -> dict[str, str]:
 
 @router.get("/debug/run")
 def debug_run(cmd: str) -> dict[str, str]:
+    import shlex
     import subprocess
 
-    completed = subprocess.run(cmd, shell=True, capture_output=True, text=True)  # noqa: S602,S603
-    return {"returncode": str(completed.returncode), "stdout": completed.stdout, "stderr": completed.stderr}
+    # Fixed: Use shell=False and shlex.split() to prevent command injection
+    # This ensures the command is parsed safely without shell interpretation
+    args = shlex.split(cmd)
+    completed = subprocess.run(args, shell=False, capture_output=True, text=True)  # noqa: S603
+    return {
+        "returncode": str(completed.returncode),
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+    }
 
 
 @router.get("/debug/fetch")
@@ -125,8 +135,7 @@ def debug_fetch(url: str) -> dict[str, str]:
 @router.get("/debug/read")
 def debug_read(path: str) -> dict[str, str]:
     try:
-        content = open(path, "r").read(1024)
+        content = open(path).read(1024)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"snippet": content}
-

@@ -24,51 +24,94 @@
     <div class="row">
       <label class="row"><input id="save_note" type="checkbox" checked /> Save as note</label>
       <button id="extract">Extract</button>
+      <button id="extract_llm">Extract LLM</button>
+      <button id="list_notes">List Notes</button>
     </div>
 
     <div class="items" id="items"></div>
+    <div class="items" id="notes"></div>
 
     <script>
       const $ = (sel) => document.querySelector(sel);
       const itemsEl = $('#items');
+      const notesEl = $('#notes');
       const btn = $('#extract');
-      btn.addEventListener('click', async () => {
+      const llmBtn = $('#extract_llm');
+      const listNotesBtn = $('#list_notes');
+
+      const renderExtractedItems = (data) => {
+        if (!data.items || data.items.length === 0) {
+          itemsEl.innerHTML = '<p class="muted">No action items found.</p>';
+          return;
+        }
+        itemsEl.innerHTML = data.items.map(it => (
+          `<div class="item"><input type="checkbox" data-id="${it.id}" /> <span>${it.text}</span></div>`
+        )).join('');
+        itemsEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener('change', async (e) => {
+            const id = e.target.getAttribute('data-id');
+            await fetch(`/action-items/${id}/done`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ done: e.target.checked }),
+            });
+          });
+        });
+      };
+
+      // Shared client helper for both heuristic and LLM extraction endpoints.
+      const extractWithEndpoint = async (endpoint) => {
         const text = $('#text').value;
         const save = $('#save_note').checked;
         itemsEl.textContent = 'Extracting...';
         try {
-          const res = await fetch('/action-items/extract', {
+          const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, save_note: save }),
           });
-          if (!res.ok) throw new Error('Request failed');
-          const data = await res.json();
-          if (!data.items || data.items.length === 0) {
-            itemsEl.innerHTML = '<p class="muted">No action items found.</p>';
-            return;
+          if (!res.ok) {
+            const errorPayload = await res.json().catch(() => ({}));
+            throw new Error(errorPayload.detail || 'Request failed');
           }
-          itemsEl.innerHTML = data.items.map(it => (
-            `<div class="item"><input type="checkbox" data-id="${it.id}" /> <span>${it.text}</span></div>`
-          )).join('');
-          itemsEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-            cb.addEventListener('change', async (e) => {
-              const id = e.target.getAttribute('data-id');
-              await fetch(`/action-items/${id}/done`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ done: e.target.checked }),
-              });
-            });
-          });
+          const data = await res.json();
+          renderExtractedItems(data);
         } catch (err) {
           console.error(err);
-          itemsEl.textContent = 'Error extracting items';
+          itemsEl.textContent = `Error extracting items: ${err.message}`;
+        }
+      };
+
+      btn.addEventListener('click', async () => {
+        await extractWithEndpoint('/action-items/extract');
+      });
+
+      // New UI trigger for TODO 4: call LLM extraction endpoint.
+      llmBtn.addEventListener('click', async () => {
+        await extractWithEndpoint('/action-items/extract-llm');
+      });
+
+      // New UI trigger for TODO 4: fetch and render all saved notes.
+      listNotesBtn.addEventListener('click', async () => {
+        notesEl.textContent = 'Loading notes...';
+        try {
+          const res = await fetch('/notes');
+          if (!res.ok) throw new Error('Failed to fetch notes');
+          const notes = await res.json();
+          if (!notes.length) {
+            notesEl.innerHTML = '<p class="muted">No notes found.</p>';
+            return;
+          }
+          notesEl.innerHTML = `
+            <h2>Saved Notes</h2>
+            ${notes.map(n => `<div class="item"><strong>#${n.id}</strong> <span>${n.content}</span></div>`).join('')}
+          `;
+        } catch (err) {
+          console.error(err);
+          notesEl.textContent = 'Error fetching notes';
         }
       });
 
     </script>
   </body>
   </html>
-
-

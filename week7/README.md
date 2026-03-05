@@ -17,7 +17,7 @@ Slightly enhanced full‑stack starter (copied from Week 5) with a few backend i
 1) Create and activate a virtualenv, then install dependencies
 
 ```bash
-cd /Users/mihaileric/Documents/code/modern-software-dev-assignments
+cd ~/modern-software-dev-assignments
 python -m venv .venv && source .venv/bin/activate
 pip install -e .[dev]
 ```
@@ -61,5 +61,3 @@ cd week7 && make lint
 ## Configuration
 
 Copy `.env.example` to `.env` (in `week7/`) to override defaults like the database path.
-
-

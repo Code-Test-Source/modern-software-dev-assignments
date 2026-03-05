@@ -1,6 +1,6 @@
-.PHONY: run test format lint seed
+.PHONY: run test format lint seed web-install web-dev web-build web-test
 
-run:
+run: web-build
 	PYTHONPATH=. uvicorn backend.app.main:app --reload --host $${HOST:-127.0.0.1} --port $${PORT:-8000}
 
 test:
@@ -15,3 +15,16 @@ lint:
 
 seed:
 	PYTHONPATH=. python -c "from backend.app.db import apply_seed_if_needed; apply_seed_if_needed()"
+
+# Web (React) targets
+web-install:
+	cd frontend/ui && npm install
+
+web-dev:
+	cd frontend/ui && npm run dev
+
+web-build:
+	cd frontend/ui && npm run build
+
+web-test:
+	cd frontend/ui && npm run test
