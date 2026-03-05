@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Control Center</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1>Developer Control Center</h1>
+
+    <section>
+        <h2>Notes</h2>
+        <form id="note-form">
+            <input id="note-title" placeholder="Title" required>
+            <textarea id="note-content" placeholder="Content"></textarea>
+            <button type="submit">Add Note</button>
+        </form>
+        <div>
+            <input id="note-search" placeholder="Search notes...">
+            <button id="note-search-btn">Search</button>
+        </div>
+        <ul id="notes"></ul>
+    </section>
+
+    <section>
+        <h2>Action Items</h2>
+        <form id="action-form">
+            <textarea id="action-desc" placeholder="Description" required></textarea>
+            <button type="submit">Add Action Item</button>
+        </form>
+        <label><input type="checkbox" id="filter-completed"> Show completed only</label>
+        <ul id="actions"></ul>
+    </section>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
