@@ -18,23 +18,33 @@ This assignment took me about **TODO** hours to do.
 
 ## Task 1: Add more endpoints and validations
 a. Links to relevant commits/issues
-> TODO
+> Commit: https://code.techutopia.cn/tomson/modern-software-dev-assignments/commit/2fa310c
 
 b. PR Description
-> TODO
+> https://code.techutopia.cn/tomson/modern-software-dev-assignments/pulls/2
+> - Added GET/DELETE/PATCH endpoints for notes and action items
+> - Implemented input validation (title length, content validation)
+> - Added proper 404 error handling
+> - Comprehensive test coverage added
 
 c. Graphite Diamond generated code review
-> TODO
+> TODO: Add Graphite Diamond review comments after review
 
 ## Task 2: Extend extraction logic
 a. Links to relevant commits/issues
-> TODO
+> Commit: https://code.techutopia.cn/tomson/modern-software-dev-assignments/commit/c5df790
 
 b. PR Description
-> TODO
+> https://code.techutopia.cn/tomson/modern-software-dev-assignments/pulls/1
+> - Extended action markers: FIXME, BUG, HACK, NOTE
+> - Added `ActionItemMatch` dataclass with metadata extraction
+> - Priority extraction from `(priority)` or `[priority]` syntax
+> - Assignee extraction from `@mentions`
+> - Due date hint extraction from `by <date>` patterns
+> - 22 comprehensive tests added
 
 c. Graphite Diamond generated code review
-> TODO
+> TODO: Add Graphite Diamond review comments after review
 
 ## Task 3: Try adding a new model and relationships
 a. Links to relevant commits/issues
