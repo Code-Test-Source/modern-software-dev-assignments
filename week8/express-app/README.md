@@ -4,7 +4,7 @@ A Node.js Express application with SQLite for managing notes and action items.
 
 ## Tech Stack
 - **Backend:** Node.js + Express
-- **Database:** SQLite (better-sqlite3)
+- **Database:** SQLite (sql.js - pure JavaScript)
 - **Frontend:** Vanilla JavaScript
 - **API:** RESTful
 
@@ -53,6 +53,6 @@ The app will be available at `http://localhost:3000`
 
 ## Notes
 - Built manually without AI app generators
-- Uses better-sqlite3 for synchronous SQLite operations
+- Uses sql.js (pure JavaScript SQLite) for cross-platform compatibility
 - Database file `devcenter.db` created automatically on first run
 - CORS enabled for development
