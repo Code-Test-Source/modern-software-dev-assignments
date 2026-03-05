@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 import re
-from typing import List
-import json
 from typing import Any
-from ollama import chat
+
 from dotenv import load_dotenv
+from ollama import chat
 
 load_dotenv()
 
@@ -16,6 +16,26 @@ KEYWORD_PREFIXES = (
     "action:",
     "next:",
 )
+
+# Keep the default model small so local development is lightweight.
+DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+
+
+def _normalize_items(raw_items: list[Any]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in raw_items:
+        if not isinstance(value, str):
+            continue
+        item = value.strip()
+        if not item:
+            continue
+        lowered = item.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        normalized.append(item)
+    return normalized
 
 
 def _is_action_line(line: str) -> bool:
@@ -31,9 +51,9 @@ def _is_action_line(line: str) -> bool:
     return False
 
 
-def extract_action_items(text: str) -> List[str]:
+def extract_action_items(text: str) -> list[str]:
     lines = text.splitlines()
-    extracted: List[str] = []
+    extracted: list[str] = []
     for raw_line in lines:
         line = raw_line.strip()
         if not line:
@@ -56,7 +76,7 @@ def extract_action_items(text: str) -> List[str]:
                 extracted.append(s)
     # Deduplicate while preserving order
     seen: set[str] = set()
-    unique: List[str] = []
+    unique: list[str] = []
     for item in extracted:
         lowered = item.lower()
         if lowered in seen:
@@ -64,6 +84,49 @@ def extract_action_items(text: str) -> List[str]:
         seen.add(lowered)
         unique.append(item)
     return unique
+
+
+def extract_action_items_llm(text: str, model: str = DEFAULT_OLLAMA_MODEL) -> list[str]:
+    clean_text = text.strip()
+    if not clean_text:
+        return []
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "items": {
+                "type": "array",
+                "items": {"type": "string"},
+            }
+        },
+        "required": ["items"],
+        "additionalProperties": False,
+    }
+
+    # Structured output enforces a stable JSON contract from the model.
+    response = chat(
+        model=model,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Extract actionable tasks from user notes. "
+                    "Return concise imperative tasks only. "
+                    "Respond strictly as JSON matching the provided schema."
+                ),
+            },
+            {
+                "role": "user",
+                "content": clean_text,
+            },
+        ],
+        format=schema,
+    )
+
+    content = response.get("message", {}).get("content", "{}")
+    parsed = json.loads(content)
+    items = parsed.get("items", []) if isinstance(parsed, dict) else []
+    return _normalize_items(items)
 
 
 def _looks_imperative(sentence: str) -> bool:

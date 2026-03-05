@@ -1,0 +1,9 @@
+body { font-family: system-ui; max-width: 800px; margin: 0 auto; padding: 20px; }
+section { margin-bottom: 30px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+input, textarea { padding: 8px; font-size: 14px; }
+button { padding: 8px 16px; cursor: pointer; }
+ul { list-style: none; padding: 0; }
+li { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+li:last-child { border-bottom: none; }
+.completed { text-decoration: line-through; color: #888; }

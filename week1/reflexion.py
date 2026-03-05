@@ -1,6 +1,6 @@
-import os
 import re
 from typing import Callable, List, Tuple
+
 from dotenv import load_dotenv
 from ollama import chat
 
@@ -15,16 +15,30 @@ Keep the implementation minimal.
 """
 
 # TODO: Fill this in!
-YOUR_REFLEXION_PROMPT = ""
+YOUR_REFLEXION_PROMPT = """
+You are a coding assistant. Output ONLY a single fenced Python code block that defines
+exactly one function: is_valid_password(password: str) -> bool. No prose, no explanations,
+no additional text outside the single code block.
 
+Requirements for the function to return True:
+- Length >= 8
+- Contains at least one lowercase letter
+- Contains at least one uppercase letter
+- Contains at least one digit
+- Contains at least one special character from the set: !@#$%^&*()-_
+- Contains no whitespace characters
+
+Return False otherwise. Keep the implementation minimal and deterministic.
+
+"""
 
 # Ground-truth test suite used to evaluate generated code
 SPECIALS = set("!@#$%^&*()-_")
 TEST_CASES: List[Tuple[str, bool]] = [
-    ("Password1!", True),       # valid
-    ("password1!", False),      # missing uppercase
-    ("Password!", False),       # missing digit
-    ("Password1", False),       # missing special
+    ("Password1!", True),  # valid
+    ("password1!", False),  # missing uppercase
+    ("Password!", False),  # missing digit
+    ("Password1", False),  # missing special
 ]
 
 

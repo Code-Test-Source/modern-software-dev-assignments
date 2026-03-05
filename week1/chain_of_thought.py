@@ -1,14 +1,19 @@
 import os
 import re
+
 from dotenv import load_dotenv
 from ollama import chat
 
 load_dotenv()
+# extend time
+os.environ["OLLAMA_TIMEOUT"] = "6000"
 
 NUM_RUNS_TIMES = 5
 
 # TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+YOUR_SYSTEM_PROMPT = """
+You are a math expert. You are given a problem and you need to solve it. Think step by step.
+"""
 
 
 USER_PROMPT = """
@@ -68,5 +73,3 @@ def test_your_prompt(system_prompt: str) -> bool:
 
 if __name__ == "__main__":
     test_your_prompt(YOUR_SYSTEM_PROMPT)
-
-

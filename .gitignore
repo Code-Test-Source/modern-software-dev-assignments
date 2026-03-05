@@ -52,3 +52,6 @@ Thumbs.db
 
 # Vercel
 .vercel/*
+
+# Node
+node_modules/

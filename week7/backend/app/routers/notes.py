@@ -2,26 +2,43 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import asc, desc, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..db import get_db
-from ..models import Note
+from ..models import Note, Tag
 from ..schemas import NoteCreate, NotePatch, NoteRead
 
 router = APIRouter(prefix="/notes", tags=["notes"])
+
+
+def _get_tags_by_ids(db: Session, tag_ids: list[int]) -> list[Tag]:
+    """Fetch tags by their IDs, raising 404 if any not found."""
+    tags = []
+    for tag_id in tag_ids:
+        tag = db.get(Tag, tag_id)
+        if not tag:
+            raise HTTPException(status_code=404, detail=f"Tag with id {tag_id} not found")
+        tags.append(tag)
+    return tags
 
 
 @router.get("/", response_model=list[NoteRead])
 def list_notes(
     db: Session = Depends(get_db),
     q: Optional[str] = None,
+    tag: Optional[str] = None,
     skip: int = 0,
     limit: int = Query(50, le=200),
     sort: str = Query("-created_at", description="Sort by field, prefix with - for desc"),
 ) -> list[NoteRead]:
-    stmt = select(Note)
+    """List notes with optional filtering by search query and tag."""
+    stmt = select(Note).options(selectinload(Note.tags))
+
     if q:
         stmt = stmt.where((Note.title.contains(q)) | (Note.content.contains(q)))
+
+    if tag:
+        stmt = stmt.join(Note.tags).where(Tag.name == tag)
 
     sort_field = sort.lstrip("-")
     order_fn = desc if sort.startswith("-") else asc
@@ -30,28 +47,18 @@ def list_notes(
     else:
         stmt = stmt.order_by(desc(Note.created_at))
 
-    rows = db.execute(stmt.offset(skip).limit(limit)).scalars().all()
+    rows = db.execute(stmt.offset(skip).limit(limit)).scalars().unique().all()
     return [NoteRead.model_validate(row) for row in rows]
 
 
 @router.post("/", response_model=NoteRead, status_code=201)
 def create_note(payload: NoteCreate, db: Session = Depends(get_db)) -> NoteRead:
+    """Create a new note with optional tags."""
     note = Note(title=payload.title, content=payload.content)
-    db.add(note)
-    db.flush()
-    db.refresh(note)
-    return NoteRead.model_validate(note)
 
+    if payload.tag_ids:
+        note.tags = _get_tags_by_ids(db, payload.tag_ids)
 
-@router.patch("/{note_id}", response_model=NoteRead)
-def patch_note(note_id: int, payload: NotePatch, db: Session = Depends(get_db)) -> NoteRead:
-    note = db.get(Note, note_id)
-    if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
-    if payload.title is not None:
-        note.title = payload.title
-    if payload.content is not None:
-        note.content = payload.content
     db.add(note)
     db.flush()
     db.refresh(note)
@@ -60,9 +67,38 @@ def patch_note(note_id: int, payload: NotePatch, db: Session = Depends(get_db)) 
 
 @router.get("/{note_id}", response_model=NoteRead)
 def get_note(note_id: int, db: Session = Depends(get_db)) -> NoteRead:
-    note = db.get(Note, note_id)
+    """Get a single note by ID."""
+    note = db.get(Note, note_id, options=[selectinload(Note.tags)])
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     return NoteRead.model_validate(note)
 
 
+@router.patch("/{note_id}", response_model=NoteRead)
+def patch_note(note_id: int, payload: NotePatch, db: Session = Depends(get_db)) -> NoteRead:
+    """Update a note partially."""
+    note = db.get(Note, note_id, options=[selectinload(Note.tags)])
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    if payload.title is not None:
+        note.title = payload.title
+    if payload.content is not None:
+        note.content = payload.content
+    if payload.tag_ids is not None:
+        note.tags = _get_tags_by_ids(db, payload.tag_ids)
+
+    db.add(note)
+    db.flush()
+    db.refresh(note)
+    return NoteRead.model_validate(note)
+
+
+@router.delete("/{note_id}", status_code=204)
+def delete_note(note_id: int, db: Session = Depends(get_db)) -> None:
+    """Delete a note."""
+    note = db.get(Note, note_id)
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    db.delete(note)
+    db.flush()

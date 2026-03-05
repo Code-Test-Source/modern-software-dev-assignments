@@ -1,6 +1,7 @@
 import os
 import re
-from typing import List, Callable
+from typing import Callable, List
+
 from dotenv import load_dotenv
 from ollama import chat
 
@@ -18,7 +19,7 @@ def load_corpus_from_files(paths: List[str]) -> List[str]:
     for p in paths:
         if os.path.exists(p):
             try:
-                with open(p, "r", encoding="utf-8") as f:
+                with open(p, encoding="utf-8") as f:
                     corpus.append(f.read())
             except Exception as exc:
                 corpus.append(f"[load_error] {p}: {exc}")
@@ -37,7 +38,7 @@ QUESTION = (
 
 
 # TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+YOUR_SYSTEM_PROMPT = "You are a helpful assistant for writing Python code to call a REST API. You have access to API documentation that may or may not be relevant to the task. Use only the provided documentation and follow the requirements in the user prompt to write the function."
 
 
 # For this simple example
@@ -56,7 +57,7 @@ def YOUR_CONTEXT_PROVIDER(corpus: List[str]) -> List[str]:
 
     For example, return [] to simulate missing context, or [corpus[0]] to include the API docs.
     """
-    return []
+    return [corpus[0]] if len(corpus) > 0 else []
 
 
 def make_user_prompt(question: str, context_docs: List[str]) -> str:
@@ -89,7 +90,9 @@ def extract_code_block(text: str) -> str:
     return text.strip()
 
 
-def test_your_prompt(system_prompt: str, context_provider: Callable[[List[str]], List[str]]) -> bool:
+def test_your_prompt(
+    system_prompt: str, context_provider: Callable[[List[str]], List[str]]
+) -> bool:
     """Run up to NUM_RUNS_TIMES and return True if any output matches EXPECTED_OUTPUT."""
     context_docs = context_provider(CORPUS)
     user_prompt = make_user_prompt(QUESTION, context_docs)

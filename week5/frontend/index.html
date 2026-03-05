@@ -17,7 +17,27 @@
           <input id="note-content" placeholder="Content" required />
           <button type="submit">Add</button>
         </form>
+        <div class="search-controls">
+          <input id="note-search" placeholder="Search notes..." />
+          <select id="note-sort">
+            <option value="created_desc">Newest first</option>
+            <option value="title_asc">Title A-Z</option>
+          </select>
+          <select id="tag-filter">
+            <option value="">All tags</option>
+          </select>
+        </div>
+        <div id="notes-pagination" class="pagination"></div>
         <ul id="notes"></ul>
+      </section>
+
+      <section>
+        <h2>Tags</h2>
+        <form id="tag-form" class="inline-form">
+          <input id="tag-name" placeholder="Tag name" required pattern="[a-zA-Z0-9_]+" />
+          <button type="submit">Add Tag</button>
+        </form>
+        <div id="tags-list" class="tags-container"></div>
       </section>
 
       <section>
@@ -26,6 +46,13 @@
           <input id="action-desc" placeholder="Description" required />
           <button type="submit">Add</button>
         </form>
+        <div class="filter-controls">
+          <label><input type="radio" name="action-filter" value="all" checked /> All</label>
+          <label><input type="radio" name="action-filter" value="open" /> Open</label>
+          <label><input type="radio" name="action-filter" value="completed" /> Completed</label>
+          <button id="bulk-complete-btn" type="button">Complete Selected</button>
+        </div>
+        <div id="actions-pagination" class="pagination"></div>
         <ul id="actions"></ul>
       </section>
     </main>
