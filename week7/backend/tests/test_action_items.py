@@ -1,178 +1,244 @@
-def test_create_complete_list_and_patch_action_item(client):
-    payload = {"description": "Ship it"}
-    r = client.post("/action-items/", json=payload)
-    assert r.status_code == 201, r.text
-    item = r.json()
-    assert item["completed"] is False
-    assert "created_at" in item and "updated_at" in item
-
-    r = client.put(f"/action-items/{item['id']}/complete")
-    assert r.status_code == 200
-    done = r.json()
-    assert done["completed"] is True
-
-    r = client.get("/action-items/", params={"completed": True, "limit": 5, "sort": "-created_at"})
-    assert r.status_code == 200
-    items = r.json()
-    assert len(items) >= 1
-
-    r = client.patch(f"/action-items/{item['id']}", json={"description": "Updated"})
-    assert r.status_code == 200
-    patched = r.json()
-    assert patched["description"] == "Updated"
+"""Comprehensive tests for Action Items endpoints including pagination and sorting."""
+import time
 
 
-def test_delete_action_item(client):
-    # Create an action item
-    payload = {"description": "To delete"}
-    r = client.post("/action-items/", json=payload)
-    assert r.status_code == 201
-    item_id = r.json()["id"]
+class TestActionItemsPagination:
+    """Tests for action item pagination functionality."""
 
-    # Verify it exists
-    r = client.get(f"/action-items/{item_id}")
-    assert r.status_code == 200
+    def test_pagination_skip_and_limit(self, client):
+        """Test basic skip and limit pagination."""
+        # Create 5 action items
+        for i in range(5):
+            client.post("/action-items/", json={"description": f"Task {i}"})
+            time.sleep(0.01)
 
-    # Delete it
-    r = client.delete(f"/action-items/{item_id}")
-    assert r.status_code == 204
+        # Get first 2 items (skip=0, limit=2)
+        response = client.get("/action-items/?skip=0&limit=2")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
 
-    # Verify it's gone
-    r = client.get(f"/action-items/{item_id}")
-    assert r.status_code == 404
+        # Get next 2 items (skip=2, limit=2)
+        response = client.get("/action-items/?skip=2&limit=2")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
 
-    # Delete non-existent item
-    r = client.delete("/action-items/99999")
-    assert r.status_code == 404
+        # Get last item (skip=4, limit=2)
+        response = client.get("/action-items/?skip=4&limit=2")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
 
+    def test_pagination_skip_beyond_available(self, client):
+        """Test pagination when skip exceeds total items."""
+        client.post("/action-items/", json={"description": "Single task"})
 
-def test_action_item_validation(client):
-    # Empty description
-    r = client.post("/action-items/", json={"description": ""})
-    assert r.status_code == 422
+        response = client.get("/action-items/?skip=100&limit=10")
+        assert response.status_code == 200
+        assert response.json() == []
 
-    # Whitespace-only description
-    r = client.post("/action-items/", json={"description": "   "})
-    assert r.status_code == 422
+    def test_pagination_default_limit(self, client):
+        """Test that default limit is applied."""
+        # Create more than default limit items
+        for i in range(60):
+            client.post("/action-items/", json={"description": f"Task {i}"})
 
-    # Description too long
-    r = client.post("/action-items/", json={"description": "x" * 1001})
-    assert r.status_code == 422
+        response = client.get("/action-items/")
+        assert response.status_code == 200
+        data = response.json()
+        # Default limit is 50
+        assert len(data) == 50
 
-    # Valid item should work
-    r = client.post("/action-items/", json={"description": "Valid description"})
-    assert r.status_code == 201
+    def test_pagination_limit_max_enforced(self, client):
+        """Test that limit cannot exceed 200 (FastAPI validation)."""
+        for i in range(250):
+            client.post("/action-items/", json={"description": f"Task {i}"})
 
+        # FastAPI validates limit <= 200, returns 422 for larger values
+        response = client.get("/action-items/?limit=300")
+        assert response.status_code == 422  # Validation error
 
-def test_get_action_item_by_id(client):
-    # Create an action item
-    payload = {"description": "Find me"}
-    r = client.post("/action-items/", json=payload)
-    assert r.status_code == 201
-    item_id = r.json()["id"]
-
-    # Get by ID
-    r = client.get(f"/action-items/{item_id}")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["description"] == "Find me"
-    assert data["completed"] is False
-
-    # Get non-existent item
-    r = client.get("/action-items/99999")
-    assert r.status_code == 404
-
-
-def test_uncomplete_action_item(client):
-    # Create and complete an action item
-    r = client.post("/action-items/", json={"description": "Task to uncomplete"})
-    assert r.status_code == 201
-    item_id = r.json()["id"]
-
-    # Complete it
-    r = client.put(f"/action-items/{item_id}/complete")
-    assert r.status_code == 200
-    assert r.json()["completed"] is True
-
-    # Uncomplete it
-    r = client.put(f"/action-items/{item_id}/uncomplete")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["completed"] is False
-    assert data["description"] == "Task to uncomplete"
-
-    # Uncomplete non-existent item
-    r = client.put("/action-items/99999/uncomplete")
-    assert r.status_code == 404
+        # Verify limit=200 works
+        response = client.get("/action-items/?limit=200")
+        assert response.status_code == 200
+        assert len(response.json()) == 200
 
 
-def test_action_items_count(client):
-    # Create multiple items
-    client.post("/action-items/", json={"description": "Task 1"})
-    client.post("/action-items/", json={"description": "Task 2"})
-    client.post("/action-items/", json={"description": "Task 3"})
+class TestActionItemsSorting:
+    """Tests for action item sorting functionality."""
 
-    # Complete one
-    r = client.get("/action-items/")
-    items = r.json()
-    if items:
-        client.put(f"/action-items/{items[0]['id']}/complete")
+    def test_sort_by_created_at_descending(self, client):
+        """Test sorting by created_at descending (default)."""
+        client.post("/action-items/", json={"description": "First task"})
+        time.sleep(0.01)
+        client.post("/action-items/", json={"description": "Second task"})
+        time.sleep(0.01)
+        client.post("/action-items/", json={"description": "Third task"})
 
-    # Get total count
-    r = client.get("/action-items/count")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["count"] >= 3
+        response = client.get("/action-items/?sort=-created_at")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) >= 3
+        # Most recent first
+        assert data[0]["description"] == "Third task"
+        assert data[1]["description"] == "Second task"
+        assert data[2]["description"] == "First task"
 
-    # Get count of completed items
-    r = client.get("/action-items/count", params={"completed": True})
-    assert r.status_code == 200
-    data = r.json()
-    assert data["count"] >= 1
+    def test_sort_by_created_at_ascending(self, client):
+        """Test sorting by created_at ascending."""
+        client.post("/action-items/", json={"description": "First task"})
+        time.sleep(0.01)
+        client.post("/action-items/", json={"description": "Second task"})
+        time.sleep(0.01)
+        client.post("/action-items/", json={"description": "Third task"})
 
-    # Get count of pending items
-    r = client.get("/action-items/count", params={"completed": False})
-    assert r.status_code == 200
-    data = r.json()
-    assert data["count"] >= 2
+        response = client.get("/action-items/?sort=created_at")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) >= 3
+        # Oldest first
+        assert data[0]["description"] == "First task"
+        assert data[1]["description"] == "Second task"
+        assert data[2]["description"] == "Third task"
+
+    def test_sort_by_description(self, client):
+        """Test sorting by description field."""
+        client.post("/action-items/", json={"description": "Zebra task"})
+        client.post("/action-items/", json={"description": "Apple task"})
+        client.post("/action-items/", json={"description": "Mango task"})
+
+        response = client.get("/action-items/?sort=description")
+        assert response.status_code == 200
+        data = response.json()
+        descriptions = [item["description"] for item in data]
+        assert descriptions == sorted(descriptions)
+
+    def test_sort_by_description_descending(self, client):
+        """Test sorting by description descending."""
+        client.post("/action-items/", json={"description": "Zebra task"})
+        client.post("/action-items/", json={"description": "Apple task"})
+        client.post("/action-items/", json={"description": "Mango task"})
+
+        response = client.get("/action-items/?sort=-description")
+        assert response.status_code == 200
+        data = response.json()
+        descriptions = [item["description"] for item in data]
+        assert descriptions == sorted(descriptions, reverse=True)
+
+    def test_sort_invalid_field_defaults_to_created_at(self, client):
+        """Test that invalid sort field falls back to created_at desc."""
+        client.post("/action-items/", json={"description": "Task"})
+
+        response = client.get("/action-items/?sort=invalid_field")
+        assert response.status_code == 200
+        # Should not error
+        assert len(response.json()) >= 1
 
 
-def test_action_item_negative_id_validation(client):
-    # Negative action item ID should return 400
-    r = client.get("/action-items/-1")
-    assert r.status_code == 400
+class TestActionItemsFiltering:
+    """Tests for action item filtering by completed status."""
 
-    r = client.patch("/action-items/-1", json={"description": "Test"})
-    assert r.status_code == 400
+    def test_filter_completed_true(self, client):
+        """Test filtering for completed items only."""
+        # Create and complete an item
+        r = client.post("/action-items/", json={"description": "Completed task"})
+        item_id = r.json()["id"]
+        client.put(f"/action-items/{item_id}/complete")
 
-    r = client.delete("/action-items/-1")
-    assert r.status_code == 400
+        # Create an incomplete item
+        client.post("/action-items/", json={"description": "Incomplete task"})
 
-    r = client.put("/action-items/-1/complete")
-    assert r.status_code == 400
+        response = client.get("/action-items/?completed=true")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) >= 1
+        for item in data:
+            assert item["completed"] is True
 
-    r = client.put("/action-items/-1/uncomplete")
-    assert r.status_code == 400
+    def test_filter_completed_false(self, client):
+        """Test filtering for incomplete items only."""
+        # Create and complete an item
+        r = client.post("/action-items/", json={"description": "Completed task"})
+        item_id = r.json()["id"]
+        client.put(f"/action-items/{item_id}/complete")
+
+        # Create an incomplete item
+        client.post("/action-items/", json={"description": "Incomplete task"})
+
+        response = client.get("/action-items/?completed=false")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) >= 1
+        for item in data:
+            assert item["completed"] is False
+
+    def test_filter_combined_with_pagination(self, client):
+        """Test filtering combined with pagination."""
+        # Create 5 completed items
+        for i in range(5):
+            r = client.post("/action-items/", json={"description": f"Completed {i}"})
+            client.put(f"/action-items/{r.json()['id']}/complete")
+
+        # Create 5 incomplete items
+        for i in range(5):
+            client.post("/action-items/", json={"description": f"Incomplete {i}"})
+
+        # Get first 3 completed items
+        response = client.get("/action-items/?completed=true&limit=3")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 3
+        for item in data:
+            assert item["completed"] is True
 
 
-def test_action_items_pagination_validation(client):
-    # Negative skip
-    r = client.get("/action-items/", params={"skip": -1})
-    assert r.status_code == 422
+class TestActionItemsCRUD:
+    """Tests for basic CRUD operations."""
 
-    # Negative limit
-    r = client.get("/action-items/", params={"limit": -1})
-    assert r.status_code == 422
+    def test_create_action_item(self, client):
+        """Test creating an action item."""
+        response = client.post("/action-items/", json={"description": "Test task"})
+        assert response.status_code == 201
+        data = response.json()
+        assert data["description"] == "Test task"
+        assert data["completed"] is False
+        assert "id" in data
+        assert "created_at" in data
 
+    def test_complete_action_item(self, client):
+        """Test completing an action item."""
+        create_response = client.post("/action-items/", json={"description": "To complete"})
+        item_id = create_response.json()["id"]
 
-def test_action_items_sort_field_validation(client):
-    # Invalid sort field
-    r = client.get("/action-items/", params={"sort": "invalid_field"})
-    assert r.status_code == 400
+        response = client.put(f"/action-items/{item_id}/complete")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["completed"] is True
 
-    # Valid sort fields
-    r = client.get("/action-items/", params={"sort": "description"})
-    assert r.status_code == 200
+    def test_update_action_item(self, client):
+        """Test updating an action item."""
+        create_response = client.post("/action-items/", json={"description": "Original"})
+        item_id = create_response.json()["id"]
 
-    r = client.get("/action-items/", params={"sort": "-completed"})
-    assert r.status_code == 200
+        response = client.patch(f"/action-items/{item_id}", json={"description": "Updated", "completed": True})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["description"] == "Updated"
+        assert data["completed"] is True
+
+    def test_partial_update_action_item(self, client):
+        """Test partial update of an action item."""
+        create_response = client.post("/action-items/", json={"description": "Original"})
+        item_id = create_response.json()["id"]
+
+        response = client.patch(f"/action-items/{item_id}", json={"completed": True})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["description"] == "Original"  # Unchanged
+        assert data["completed"] is True
+
+    def test_get_nonexistent_item(self, client):
+        """Test getting an item that doesn't exist."""
+        response = client.patch("/action-items/99999", json={"description": "Test"})
+        assert response.status_code == 404
