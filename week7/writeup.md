@@ -38,13 +38,18 @@ c. Graphite Diamond generated code review
 
 ## Task 3: Try adding a new model and relationships
 a. Links to relevant commits/issues
-> TODO
+> Commit: https://code.techutopia.cn/tomson/modern-software-dev-assignments/commit/eb324f0
 
 b. PR Description
-> TODO
+> https://code.techutopia.cn/tomson/modern-software-dev-assignments/pulls/3
+> - Added Tag model with name (unique) and color fields
+> - Created many-to-many relationship between Notes and Tags
+> - Full CRUD endpoints for tags
+> - Notes can be filtered by tag name
+> - 18 comprehensive tests added
 
 c. Graphite Diamond generated code review
-> TODO
+> TODO: Add Graphite Diamond review comments after review
 
 ## Task 4: Improve tests for pagination and sorting
 a. Links to relevant commits/issues
