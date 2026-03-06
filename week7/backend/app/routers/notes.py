@@ -12,14 +12,15 @@ router = APIRouter(prefix="/notes", tags=["notes"])
 
 
 def _get_tags_by_ids(db: Session, tag_ids: list[int]) -> list[Tag]:
-    """Fetch tags by their IDs, raising 404 if any not found."""
-    tags = []
-    for tag_id in tag_ids:
-        tag = db.get(Tag, tag_id)
-        if not tag:
-            raise HTTPException(status_code=404, detail=f"Tag with id {tag_id} not found")
-        tags.append(tag)
-    return tags
+    """Fetch tags by their IDs in a single query, raising 404 if any not found."""
+    if not tag_ids:
+        return []
+    tags = db.execute(select(Tag).where(Tag.id.in_(tag_ids))).scalars().all()
+    found_ids = {tag.id for tag in tags}
+    missing = set(tag_ids) - found_ids
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Tag with id {next(iter(missing))} not found")
+    return list(tags)
 
 
 @router.get("/", response_model=list[NoteRead])
@@ -27,8 +28,8 @@ def list_notes(
     db: Session = Depends(get_db),
     q: Optional[str] = None,
     tag: Optional[str] = None,
-    skip: int = 0,
-    limit: int = Query(50, le=200),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=0, le=200),
     sort: str = Query("-created_at", description="Sort by field, prefix with - for desc"),
 ) -> list[NoteRead]:
     """List notes with optional filtering by search query and tag."""

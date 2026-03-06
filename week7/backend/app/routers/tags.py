@@ -8,12 +8,14 @@ from ..schemas import TagCreate, TagPatch, TagRead
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 
+VALID_TAG_SORT_FIELDS = {"id", "name", "color", "created_at", "updated_at"}
+
 
 @router.get("/", response_model=list[TagRead])
 def list_tags(
     db: Session = Depends(get_db),
-    skip: int = 0,
-    limit: int = Query(50, le=200),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=0, le=200),
     sort: str = Query("name"),
 ) -> list[TagRead]:
     """List all tags with optional sorting."""
@@ -21,7 +23,7 @@ def list_tags(
 
     sort_field = sort.lstrip("-")
     order_fn = desc if sort.startswith("-") else asc
-    if hasattr(Tag, sort_field):
+    if sort_field in VALID_TAG_SORT_FIELDS:
         stmt = stmt.order_by(order_fn(getattr(Tag, sort_field)))
     else:
         stmt = stmt.order_by(asc(Tag.name))
