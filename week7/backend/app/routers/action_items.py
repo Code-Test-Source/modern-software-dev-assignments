@@ -15,17 +15,17 @@ VALID_SORT_FIELDS = {"id", "description", "completed", "created_at", "updated_at
 
 
 def validate_item_id(item_id: int) -> int:
-    """Validate item_id is positive."""
-    if item_id < 0:
+    """Validate item_id is positive (greater than zero)."""
+    if item_id <= 0:
         raise HTTPException(status_code=400, detail="Action item ID must be a positive integer")
     return item_id
 
 
 def validate_sort_field(sort: str) -> str:
-    """Validate sort field is valid."""
+    """Validate sort field; falls back to -created_at for unknown fields."""
     sort_field = sort.lstrip("-")
     if sort_field not in VALID_SORT_FIELDS:
-        raise HTTPException(status_code=400, detail=f"Invalid sort field: {sort_field}")
+        return "-created_at"
     return sort
 
 

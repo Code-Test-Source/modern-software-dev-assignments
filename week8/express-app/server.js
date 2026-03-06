@@ -1,5 +1,4 @@
 const express = require('express');
-const cors = require('cors');
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
@@ -39,7 +38,6 @@ async function startServer() {
   saveDb(db);
 
   const app = express();
-  app.use(cors());
   app.use(express.json());
   app.use(express.static('public'));
 
@@ -89,11 +87,18 @@ async function startServer() {
 
   app.post('/api/notes', (req, res) => {
     const { title, content = '' } = req.body;
-    db.run('INSERT INTO notes (title, content) VALUES (?, ?)', [title, content]);
-    const id = db.exec('SELECT last_insert_rowid() as id')[0]?.values[0]?.[0];
-    saveDb(db);
-    const note = queryOne('SELECT * FROM notes WHERE id = ?', [id]);
-    res.status(201).json(note);
+    if (!title || typeof title !== 'string' || title.trim() === '') {
+      return res.status(400).json({ error: 'title is required and must be a non-empty string' });
+    }
+    try {
+      db.run('INSERT INTO notes (title, content) VALUES (?, ?)', [title.trim(), content.trim()]);
+      const id = db.exec('SELECT last_insert_rowid() as id')[0]?.values[0]?.[0];
+      saveDb(db);
+      const note = queryOne('SELECT * FROM notes WHERE id = ?', [id]);
+      res.status(201).json(note);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to create note' });
+    }
   });
 
   app.get('/api/notes/:id', (req, res) => {
@@ -135,11 +140,18 @@ async function startServer() {
 
   app.post('/api/action-items', (req, res) => {
     const { description, completed = false } = req.body;
-    db.run('INSERT INTO action_items (description, completed) VALUES (?, ?)', [description, completed ? 1 : 0]);
-    const id = db.exec('SELECT last_insert_rowid() as id')[0]?.values[0]?.[0];
-    saveDb(db);
-    const item = queryOne('SELECT * FROM action_items WHERE id = ?', [id]);
-    res.status(201).json({ ...item, completed: !!item.completed });
+    if (!description || typeof description !== 'string' || description.trim() === '') {
+      return res.status(400).json({ error: 'description is required and must be a non-empty string' });
+    }
+    try {
+      db.run('INSERT INTO action_items (description, completed) VALUES (?, ?)', [description.trim(), completed ? 1 : 0]);
+      const id = db.exec('SELECT last_insert_rowid() as id')[0]?.values[0]?.[0];
+      saveDb(db);
+      const item = queryOne('SELECT * FROM action_items WHERE id = ?', [id]);
+      res.status(201).json({ ...item, completed: !!item.completed });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to create action item' });
+    }
   });
 
   app.put('/api/action-items/:id/complete', (req, res) => {

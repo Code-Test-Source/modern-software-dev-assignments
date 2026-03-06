@@ -90,16 +90,16 @@ APP DETAILS:
 ===============
 Folder name: express-app
 AI app generation platform: None (built manually with Claude Code)
-Tech Stack: Node.js + Express + better-sqlite3 + Vanilla JS
-Persistence: SQLite database with better-sqlite3
-Frameworks/Libraries Used: Express, better-sqlite3, cors
+Tech Stack: Node.js + Express + sql.js + Vanilla JS
+Persistence: SQLite database via sql.js (in-memory with file persistence)
+Frameworks/Libraries Used: Express, sql.js, cors
 (Optional but recommended) Screenshots of core flows: N/A
 
 REFLECTIONS:
 ===============
 a. Issues encountered per stack and how you resolved them:
-   - better-sqlite3 requires native compilation
-   - Resolved by using synchronous SQLite operations for simplicity
+   - better-sqlite3 requires native compilation which is incompatible with Node.js 25
+   - Resolved by switching to sql.js (WebAssembly-based SQLite) for pure-JS compatibility
    - Boolean handling in SQLite required explicit conversion (0/1 to true/false)
 
 b. Prompting (e.g. what required additional guidance; what worked poorly/well):

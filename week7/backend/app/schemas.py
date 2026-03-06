@@ -69,3 +69,7 @@ class ActionItemRead(BaseModel):
 class ActionItemPatch(BaseModel):
     description: str | None = Field(None, min_length=1)
     completed: bool | None = None
+
+
+class CountResponse(BaseModel):
+    count: int
